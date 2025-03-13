@@ -1,0 +1,109 @@
+{
+    "info":{
+        "base_file": "/filepathway/to/management file(.xlsx)",
+        "eks_csv": true,
+        "save_dir": "/filepathway/to/save",
+
+        "n_views": 4,
+        "n_keypoints": 44,
+        "keypoint_names": [
+            "nose_1","l_ear_1","r_ear_1","body_1","l_fft_1","r_fft_1","l_hft_1","r_hft_1","top_tail_1","mid_tail_1","end_tail_1",
+            "nose_2","l_ear_2","r_ear_2","body_2","l_fft_2","r_fft_2","l_hft_2","r_hft_2","top_tail_2","mid_tail_2","end_tail_2",
+            "nose_3","l_ear_3","r_ear_3","body_3","l_fft_3","r_fft_3","l_hft_3","r_hft_3","top_tail_3","mid_tail_3","end_tail_3",
+            "nose_4","l_ear_4","r_ear_4","body_4","l_fft_4","r_fft_4","l_hft_4","r_hft_4","top_tail_4","mid_tail_4","end_tail_4"
+        ]
+    },
+
+    "preprocess":{
+        "use_saved_preprocess": false,
+        "use_savedpreprocess_path": "/filepathway/to/existing/preprocess file(.npy)",
+
+        "pca_confidence": 0.90,
+        "save_pca_result": true,
+
+        "3d_reconstruction": true,
+
+        "egocentric_alignment": true,
+        "egocentric_keypoint": "body",
+
+        "compute_velocity": true,
+
+        "add_position": true,
+
+        "add_angle": true,
+        "line_keypoints": [["nose", "top_tail"], ["body","top_tail"],["top_tail", "end_tail"]]
+    },
+
+    "cwt": {
+        "use_saved_cwt": false,
+        "use_savedcwt_path": "/filepathway/to/existing/cwt file(.npy)",
+
+        "scaler": true,
+        "cwt_frequencies_start": 1,
+        "cwt_frequencies_end": 20,
+        "cwt_frequencies_step": 1,
+        "cwt_omega0": 6,
+        "cwt_dt": 0.01,
+        "cwt_plot_separate": false,
+
+        "cwt_filtering": true,
+        "freq_removal_threshold": 0.8
+    },
+
+    "vae": {
+        "use_saved_latentspace": true,
+        "use_savedlatent_path": "/filepathway/to/existing/vae/latent/file(.npy)",
+
+        "use_saved_vae": false,
+        "use_savedvae_path": "/filepathway/to/existing/vae/modelweight/file(.pt)",
+        "use_savedvaehyparam_path": "/filepathway/to/existing/vae/hyperparmeter/file(.json)",
+
+        "scaler": true,
+        
+        "vaemodel_type": "deepvae",
+        "test_split": 0.2,
+       
+        "hidden_dim_range": [1080, 2400],  
+        "latent_dim_range": [11, 66],    
+        "epochs_range": [100, 2000],    
+        "batch_size_options": [16384,32768], 
+        "learning_rate_range": [1e-6, 1e-3],
+        "optuna_n_trials": 40,
+        "patience": 20 
+    },
+
+    "umap": {
+        "use_saved_umap": true,
+        "use_savedumap_path": "/filepathway/to/existing/umap/file(.npy)",
+
+        "n_neighbors": 50,
+        "min_dist": 0.5,
+        "n_components": 2,
+        "plot_2d": true,
+        "plot_3d": false,
+        "save_plot": true
+    },
+
+    "hdbscan": {
+        "run_gpu": true,
+        "min_cluster_sizes": [500],
+        
+        "method": "leaf",
+
+        "noise_method": "std_threshold",
+        "prob_threshold": 0.1,
+        "std_threshold": 1.0,
+
+        "dim_reduction_type": "pca",
+        "plot_2d": true,
+        "plot_3d": false,
+        "plot_show": false,
+        "save_plot": true,
+        "save_plotformat": "png",
+        
+        "frames_to_show_per_medoid": 6,
+        "selection_mode": "closest",
+        "save_ani": true
+    }
+  }
+  

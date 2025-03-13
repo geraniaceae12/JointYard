@@ -1,1 +1,17 @@
+# Exclude cache files and build files
+__pycache__/        # Ignore Python bytecode cache folders
+*.pyc               # Ignore Python compiled files (.pyc)
+*.pyo               # Ignore optimized Python files (.pyo)
 
+# Exclude specific folders
+logs/               # Ignore logs folder
+data/               # Ignore data folder
+checkpoints/        # Ignore checkpoints folder
+
+# Exclude files inside the 'result' folder, but keep the folder structure
+result/*            # Ignore all files inside the result folder
+!result/.gitkeep    # Keep the .gitkeep file to maintain the result folder structure
+
+# Exclude all .json files, but allow sample config.json
+*.json              # Ignore all .json files
+!config_sample.json # Allow sample config.json to be tracked

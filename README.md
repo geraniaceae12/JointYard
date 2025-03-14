@@ -41,7 +41,10 @@ pip install -r requirement.txt
 pip install --extra-index-url=https://pypi.nvidia.com cudf-cu12==24.10.* cuml-cu12==24.10.*
 ```
 
+---
 ## Pipeline Overview  
+![스크린샷_2025-03-14_18-01-08](https://github.com/user-attachments/assets/a721dcda-274b-4e0e-ba58-daf8efc46323)
+![스크린샷_2025-03-14_18-01-41](https://github.com/user-attachments/assets/df588734-f891-469a-8f61-31135f3b0126)
 
 1️. **Preprocessing**  
    - Load and clean pose-tracking data  
@@ -67,5 +70,6 @@ pip install --extra-index-url=https://pypi.nvidia.com cudf-cu12==24.10.* cuml-cu
    - Markovian process with transition analysis  
    - SPAEF analysis  
 
+---
 ## License
 This project is licensed under the MIT License. See the [LICENSE](https://github.com/thejiyounglee/JointYard/blob/main/LICENSE) file for details.

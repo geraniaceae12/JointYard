@@ -20,10 +20,7 @@ https://github.com/user-attachments/assets/3f816a22-69ad-4e05-99ee-233bdfc231a8
 **Tested on:**  
 - **Ubuntu 20.04**  
 - **RTX 4090**  
-- **CUDA 12.3**  
-
-> **Note:** If you do not have a **GPU** or cannot use cuml, you can modify the import statements  
-> to use CPU-based alternatives (e.g., by commenting out PCA, UMAP, HDBSCAN imports).  
+- **CUDA 12.3**   
 
 ### Steps  
 1️. **Create and activate a virtual environment**
@@ -40,7 +37,10 @@ cd /path/to/JointYard
 pip install -r requirement.txt
 pip install --extra-index-url=https://pypi.nvidia.com cudf-cu12==24.10.* cuml-cu12==24.10.*
 ```
-
+> **Note:** If you do not have a **GPU** or cannot use **cuml**, you can modify the import statements  
+> to use CPU-based alternatives (e.g., by commenting out PCA, UMAP, HDBSCAN imports).
+> changing it to the appropriate version for the environment.
+> However, This code is based on the environment written above.
 ---
 ## Pipeline Overview  
 ![스크린샷_2025-03-14_18-01-08](https://github.com/user-attachments/assets/a721dcda-274b-4e0e-ba58-daf8efc46323)

@@ -57,7 +57,9 @@
         "use_saved_vae": false,
         "use_savedvae_path": "/filepathway/to/existing/vae/modelweight/file(.pt)",
         "use_savedvaehyparam_path": "/filepathway/to/existing/vae/hyperparmeter/file(.json)",
-
+        
+        "optuna_checkpoint": false,
+        
         "scaler": true,
         
         "vaemodel_type": "deepvae",

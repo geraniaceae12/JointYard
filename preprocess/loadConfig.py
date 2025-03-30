@@ -111,6 +111,8 @@ class ConfigLoader:
             'use_saved_vaemodel_path': vae.get('use_savedvae_path', False),
             'use_saved_vaehyparam_path': vae.get('use_savedvaehyparam_path', False),
 
+            'optuna_checkpoint': vae.get('optuna_checkpoint', False),
+
             'scaler': vae.get('scaler', True),
 
             'vaemodel_type': vae.get('vaemodel_type', "deepvae"),

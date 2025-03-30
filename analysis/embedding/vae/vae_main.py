@@ -37,6 +37,7 @@ def vae_run(config_path, data = None):
     model_type = vae_config['vaemodel_type']  # 'deepvae' or 'vanillavae'
     data_path = vae_config.get('data_path', None)
     patience = vae_config['patience']
+    optuna_checkpoint = vae_config['optuna_checkpoint']
     
     model_save_dir = os.path.join(config['info']['save_dir'],model_type,"logs/") + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     os.makedirs(model_save_dir, exist_ok=True) 
@@ -72,36 +73,70 @@ def vae_run(config_path, data = None):
     study = optuna.create_study(direction='minimize', pruner=pruner)
 
     # Define the objective function for Optuna
-    def objective(trial):
-        hidden_dim = trial.suggest_int('hidden_dim', vae_config['hidden_dim_range'][0], vae_config['hidden_dim_range'][1])
-        latent_dim = trial.suggest_int('latent_dim', vae_config['latent_dim_range'][0], vae_config['latent_dim_range'][1])
-        batch_size = trial.suggest_categorical('batch_size', vae_config['batch_size_options'])
-        learning_rate = trial.suggest_float('learning_rate', vae_config['learning_rate_range'][0], vae_config['learning_rate_range'][1], log=True)
-        epochs = trial.suggest_int('epochs', vae_config['epochs_range'][0], vae_config['epochs_range'][1])
-        
+    def objective(trial, optuna_checkpoint):
         # Trial-specific log directory
         trial_log_dir = os.path.join(model_save_dir, f"trial_{trial.number}") # trial number starts with '0'
         os.makedirs(trial_log_dir, exist_ok=True)
 
-        # Initialize Model
-        if model_type == 'deepvae':
-            model = DeepVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
-        elif model_type == 'vanillavae':
-            model = VanillaVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
-        else:
-            raise ValueError("Invalid VAE type in config")
+        if optuna_checkpoint and os.path.exists(optuna_checkpoint):
+            # Load optuna checkpoint
+            checkpoint = torch.load(optuna_checkpoint)
 
-        # Initialize Optimizer( type: adam or sgd )
-        optimizer = get_optimizer(model.parameters(), learning_rate)
-        
-        # Train model and evaluate
-        try:
-            trained_model, validation_loss = train_vae(
-                model, train_data, validation_data, optimizer, epochs, trial_log_dir, device, batch_size=batch_size,
-                patience=patience, latent_dim=latent_dim, hidden_dim=hidden_dim, learning_rate=learning_rate, trial=trial
-            )
-        except optuna.exceptions.TrialPruned:
-            raise  # Let Optuna handle the pruned trial
+            # 모델 초기화 (체크포인트 하이퍼파라미터 기반)
+            if model_type == 'deepvae':
+                model = DeepVAE(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['hidden_dim']).to(device)
+            elif model_type == 'vanillavae':
+                model = VanillaVAE(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['latent_dim']).to(device)
+            else:
+                raise ValueError("Invalid VAE type in config")
+            
+            optimizer = get_optimizer(model.parameters(), checkpoint['learning_rate'])
+            
+            # 체크포인트에서 모델 및 옵티마이저 상태 복원
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            
+            epoch = checkpoint['epoch']         
+            print(f"Resumed training from optuna checkpoint: epoch {epoch} with latent_dim={checkpoint['latent_dim']} and hidden_dim={checkpoint['hidden_dim']}")
+            
+            epochs = trial.suggest_int('epochs', vae_config['epochs_range'][0], vae_config['epochs_range'][1])
+            # Train model and evaluate
+            try:
+                trained_model, validation_loss = train_vae(
+                    model, train_data, validation_data, optimizer, epochs, trial_log_dir, device, 
+                    batch_size=checkpoint['batch_size'], patience=patience, latent_dim=checkpoint['latent_dim'], hidden_dim=checkpoint['hidden_dim'],
+                    learning_rate=checkpoint['learning_rate'], trial=trial, 
+                    start_epoch= checkpoint['epoch'], best_loss = checkpoint['best_loss'], no_improvement_count = checkpoint['no_improvement_count']
+                )
+            except optuna.exceptions.TrialPruned:
+                raise  # Let Optuna handle the pruned trial
+            optuna_checkpoint = None
+        else:    
+            hidden_dim = trial.suggest_int('hidden_dim', vae_config['hidden_dim_range'][0], vae_config['hidden_dim_range'][1])
+            latent_dim = trial.suggest_int('latent_dim', vae_config['latent_dim_range'][0], vae_config['latent_dim_range'][1])
+            batch_size = trial.suggest_categorical('batch_size', vae_config['batch_size_options'])
+            learning_rate = trial.suggest_float('learning_rate', vae_config['learning_rate_range'][0], vae_config['learning_rate_range'][1], log=True)
+            epochs = trial.suggest_int('epochs', vae_config['epochs_range'][0], vae_config['epochs_range'][1])
+
+            # Initialize Model
+            if model_type == 'deepvae':
+                model = DeepVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
+            elif model_type == 'vanillavae':
+                model = VanillaVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
+            else:
+                raise ValueError("Invalid VAE type in config")
+
+            # Initialize Optimizer( type: adam or sgd )
+            optimizer = get_optimizer(model.parameters(), learning_rate)
+            
+            # Train model and evaluate
+            try:
+                trained_model, validation_loss = train_vae(
+                    model, train_data, validation_data, optimizer, epochs, trial_log_dir, device, batch_size=batch_size,
+                    patience=patience, latent_dim=latent_dim, hidden_dim=hidden_dim, learning_rate=learning_rate, trial=trial
+                )
+            except optuna.exceptions.TrialPruned:
+                raise  # Let Optuna handle the pruned trial
 
         # GPU memory release in the end of each trial
         del model, optimizer, trained_model
@@ -112,8 +147,8 @@ def vae_run(config_path, data = None):
         return validation_loss
 
     # Run Optuna optimization
-    study.optimize(objective, n_trials=vae_config['optuna_n_trials'])
-
+    study.optimize(lambda trial: objective(trial, optuna_checkpoint), n_trials=vae_config['optuna_n_trials'])
+    
     # Print best parameters
     best_params = study.best_params
     print(f"\nStart with Best params: {best_params}")

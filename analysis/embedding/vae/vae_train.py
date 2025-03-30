@@ -12,15 +12,17 @@ from .vae_utils import load_config, load_data, check_gpu, get_optimizer
 from .vae_visualize import visualize_latent_space_and_save
 
 def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_dir, device, 
-              patience=50, batch_size=32, latent_dim=2, hidden_dim=128, learning_rate=0.001, trial=None):
+              patience=50, batch_size=32, latent_dim=2, hidden_dim=128, learning_rate=0.001, trial=None,
+              start_epoch = None, best_loss = None, no_improvement_count = None):
     criterion = torch.nn.MSELoss()
-    best_loss = float('inf')
-    no_improvement_count = 0
+    best_loss = float('inf') if not best_loss else best_loss
+    no_improvement_count = 0 if not no_improvement_count else no_improvement_count
     scaler = GradScaler() # Mixed Precision Traning을 위한 GradScaler 초기화
 
     writer = SummaryWriter(log_dir=model_save_dir)
 
-    for epoch in range(epochs):
+    start_epoch = 0 if not start_epoch else start_epoch
+    for epoch in range(start_epoch, epochs):
         model.train()
         train_loss = 0.0
         for i in range(0, len(train_data), batch_size):
@@ -56,7 +58,10 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
 
             if val_loss < best_loss:
                 best_loss = val_loss
-                best_model_path = os.path.join(model_save_dir, f"best_model_epoch_{epoch+1}_loss_{best_loss:.4f}.pt")
+
+                model_info_dir = os.path.join(model_save_dir, "model_info")
+                os.makedirs(model_info_dir, exist_ok=True)
+                best_model_path = os.path.join(model_info_dir, f"best_model_epoch_{epoch+1}_loss_{best_loss:.4f}.pt")
                 torch.save(model.state_dict(), best_model_path)
 
                 # 하이퍼파라미터 저장
@@ -67,10 +72,26 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                     'batch_size': batch_size,
                     'learning_rate': learning_rate
                 }
-                best_hyperparams_path = os.path.join(model_save_dir, "best_hyperparams.json")
+                best_hyperparams_path = os.path.join(model_info_dir, "best_hyperparams.json")
                 with open(best_hyperparams_path, 'w') as f:
                     json.dump(best_hyperparams, f)
                 
+                # 훈련 상태 저장 (Optimizer, Epoch 등)
+                optuna_info_dir = os.path.join(model_save_dir, "optuna_info")
+                os.makedirs(optuna_info_dir, exist_ok=True)
+                checkpoint_path = os.path.join(optuna_info_dir, f"optuna_checkpoint_epoch_{epoch+1}.pth")
+                torch.save({
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'best_loss': best_loss,
+                    'no_improvement_count': no_improvement_count,
+                    'latent_dim': latent_dim,  
+                    'hidden_dim': hidden_dim,
+                    'batch_size': batch_size,
+                    'learning_rate':learning_rate
+                }, checkpoint_path)
+
                 # 잠재 공간 저장 및 시각화
                 model.eval()
                 with torch.no_grad():
@@ -84,8 +105,9 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                         batch = validation_data[i:i+batch_size].to(device)
                         _, mean, _ = model(batch)
                         latent_space_val = np.vstack([latent_space_val, mean.cpu().numpy()])
-                
-                visualize_latent_space_and_save(latent_space_train, latent_space_val, latent_dim, model_save_dir, best_loss, model_file=os.path.basename(best_model_path))
+                embedding_info_dir = os.path.join(model_save_dir, "embedding_info")
+                os.makedirs(embedding_info_dir, exist_ok=True)
+                visualize_latent_space_and_save(latent_space_train, latent_space_val, latent_dim, embedding_info_dir, best_loss, model_file=os.path.basename(best_model_path))
                 
                 # Early stopping logic based on improvement
                 # min_delta = 1e-4  # Minimum loss change to reset counter

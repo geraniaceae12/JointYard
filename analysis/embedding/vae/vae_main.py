@@ -73,7 +73,9 @@ def vae_run(config_path, data = None):
     study = optuna.create_study(direction='minimize', pruner=pruner)
 
     # Define the objective function for Optuna
-    def objective(trial, optuna_checkpoint):
+    def objective(trial):
+        nonlocal optuna_checkpoint
+
         # Trial-specific log directory
         trial_log_dir = os.path.join(model_save_dir, f"trial_{trial.number}") # trial number starts with '0'
         os.makedirs(trial_log_dir, exist_ok=True)
@@ -99,6 +101,8 @@ def vae_run(config_path, data = None):
             epoch = checkpoint['epoch']         
             print(f"Resumed training from optuna checkpoint: epoch {epoch} with latent_dim={checkpoint['latent_dim']} and hidden_dim={checkpoint['hidden_dim']}")
             
+            optuna_checkpoint = None
+            
             epochs = trial.suggest_int('epochs', vae_config['epochs_range'][0], vae_config['epochs_range'][1])
             # Train model and evaluate
             try:
@@ -110,7 +114,7 @@ def vae_run(config_path, data = None):
                 )
             except optuna.exceptions.TrialPruned:
                 raise  # Let Optuna handle the pruned trial
-            optuna_checkpoint = None
+            
         else:    
             hidden_dim = trial.suggest_int('hidden_dim', vae_config['hidden_dim_range'][0], vae_config['hidden_dim_range'][1])
             latent_dim = trial.suggest_int('latent_dim', vae_config['latent_dim_range'][0], vae_config['latent_dim_range'][1])
@@ -147,7 +151,7 @@ def vae_run(config_path, data = None):
         return validation_loss
 
     # Run Optuna optimization
-    study.optimize(lambda trial: objective(trial, optuna_checkpoint), n_trials=vae_config['optuna_n_trials'])
+    study.optimize(objective, n_trials=vae_config['optuna_n_trials'])
     
     # Print best parameters
     best_params = study.best_params

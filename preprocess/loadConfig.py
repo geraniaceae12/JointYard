@@ -31,7 +31,7 @@ class ConfigLoader:
         info = self.config.get('info', {})
         return {
             'base_file': info.get('base_file'),
-            'eks_csv': info.get('eks_csv'),
+            'eks_csv': info.get('eks_csv',False),
             'save_dir': info.get('save_dir'),
             
             'n_views': info.get('n_views'),
@@ -59,7 +59,7 @@ class ConfigLoader:
             'add_position': preprocess.get('add_position', False),
 
             'add_angle': preprocess.get('add_angle', False),
-            'line_keypoints': preprocess.get('line_keypoints')
+            'line_keypoints': preprocess.get('line_keypoints', [])
         }
     
     def get_cwt(self):
@@ -111,6 +111,8 @@ class ConfigLoader:
             'use_saved_vaemodel_path': vae.get('use_savedvae_path', False),
             'use_saved_vaehyparam_path': vae.get('use_savedvaehyparam_path', False),
 
+            'optuna_db_path': vae.get('optuna_db_path', False),
+            'optuna_study_name': vae.get('optuna_study_name', False),
             'optuna_checkpoint': vae.get('optuna_checkpoint', False),
 
             'scaler': vae.get('scaler', True),

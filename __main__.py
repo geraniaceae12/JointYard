@@ -12,7 +12,7 @@ from datetime import datetime
 from preprocess.loadConfig import ConfigLoader
 from preprocess.loadLPdata import LoadLPData
 from preprocess.reconstruct3D import process_groups_reconstruction
-from preprocess.egocentric import egocentric_alignment_3d, egocentric_alignment_2d
+from preprocess.egocentric import egocentric_alignment_3d, egocentric_alignment_2d, align_3dvector_to_axis
 from preprocess.computemotion import compute_vector_magnitudes, compute_velocities,compute_direction_changes
 from preprocess.addposition import calculate_position
 from preprocess.addangle import calculate_normal_vectors_per_group, calculate_angle_between_line_and_plane

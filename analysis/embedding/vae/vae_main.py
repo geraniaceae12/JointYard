@@ -1,4 +1,5 @@
 # analysis/vae/train.py
+import random
 import torch
 import torch.optim as optim
 import gc
@@ -6,6 +7,7 @@ import numpy as np
 import datetime
 import os
 import optuna
+from optuna.storages import RDBStorage
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -13,6 +15,14 @@ from .vae_model import DeepVAE, VanillaVAE
 from .vae_utils import load_config, load_data, check_gpu, get_optimizer
 from .vae_train import train_vae
 
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    
 def vae_run(config_path, data = None):
     """
     Function to run the Variational Autoencoder (VAE) model with hyperparameter optimization using Optuna.
@@ -30,22 +40,26 @@ def vae_run(config_path, data = None):
         trained_model: The final trained VAE model.
         device: Device (GPU/CPU) used for training.
     """
-    # Load configuration
+    set_seed(42)
+    ###### Load configuration ############################
     config = load_config(config_path)
     vae_config = config["vae"]
     
     model_type = vae_config['vaemodel_type']  # 'deepvae' or 'vanillavae'
     data_path = vae_config.get('data_path', None)
     patience = vae_config['patience']
+
+    optuna_db_path = vae_config.get("optuna_db_path", None)
+    optuna_study_name = vae_config.get("optuna_study_name", None)
     optuna_checkpoint = vae_config['optuna_checkpoint']
     
-    model_save_dir = os.path.join(config['info']['save_dir'],model_type,"logs/") + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    model_save_dir = os.path.join(config['info']['save_dir'],model_type) + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     os.makedirs(model_save_dir, exist_ok=True) 
 
     # Check device
     device = check_gpu()
 
-    # Load and preprocess the data
+    ###### Load and preprocess the data ########################
     if data_path:
         data = load_data(data_path)
     elif data is not None:
@@ -64,20 +78,42 @@ def vae_run(config_path, data = None):
 
     train_data, validation_data = train_test_split(data, test_size = vae_config.get('test_split', 0.2) , random_state=42)
     
-    # Define the Optuna study with a Pruner
-    pruner = optuna.pruners.MedianPruner(
-        n_startup_trials=5,   # Perform at least 5 trials before considering pruning
-        n_warmup_steps=50,   # Allow the first 100 steps (epochs) of each trial before pruning
-        interval_steps=5      # Check for pruning every 5 steps (epochs)
-    )
-    study = optuna.create_study(direction='minimize', pruner=pruner)
+    ###### Define the Optuna study with a Pruner ########################
+    if optuna_db_path and optuna_study_name:
+        print(f"📦 Connecting to Optuna DB at {optuna_db_path} with study name '{optuna_study_name}'")
+        optuna_db_url = f"sqlite:///{optuna_db_path}"
+        storage = RDBStorage(optuna_db_url)
+    else:
+        print("⚠️ No Optuna DB specified, Study will be created with default values.")
+        optuna_study_name = "vae_hparam_search"
+        optuna_db_path = os.path.join(config['info']['save_dir'],model_type,optuna_study_name)
+        os.makedirs(optuna_db_path, exist_ok=True) 
+        optuna_db_url = f"sqlite:///{os.path.join(optuna_db_path, 'vae_optuna.db')}"
+        storage = RDBStorage(optuna_db_url)
 
-    # Define the objective function for Optuna
+    study = optuna.create_study(
+        study_name=optuna_study_name,
+        direction='minimize',
+        storage=storage,
+        load_if_exists=True,
+        pruner=optuna.pruners.MedianPruner(
+            n_startup_trials=5,
+            n_warmup_steps=50,
+            interval_steps=5
+        )
+    ) # Create or resume the study
+    print("🔍 Number of completed trials:", len(study.trials))
+    if study.trials:
+        print("🏅 Best trial so far:", study.best_trial)
+        for trial in study.trials:
+            print(f"Trial ID: {trial.number}, State: {trial.state}")
+
+    ###### Define the objective function for Optuna ########################
     def objective(trial):
         nonlocal optuna_checkpoint
 
         # Trial-specific log directory
-        trial_log_dir = os.path.join(model_save_dir, f"trial_{trial.number}") # trial number starts with '0'
+        trial_log_dir = os.path.join(model_save_dir, f"trial_{trial.number}") # trial number starts with '0'or'resuming point'
         os.makedirs(trial_log_dir, exist_ok=True)
 
         if optuna_checkpoint and os.path.exists(optuna_checkpoint):
@@ -99,18 +135,17 @@ def vae_run(config_path, data = None):
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             
             epoch = checkpoint['epoch']         
-            print(f"Resumed training from optuna checkpoint: epoch {epoch} with latent_dim={checkpoint['latent_dim']} and hidden_dim={checkpoint['hidden_dim']}")
+            print(f"Resumed {trial.number} training from optuna checkpoint: epoch {epoch} with latent_dim={checkpoint['latent_dim']} and hidden_dim={checkpoint['hidden_dim']}")
             
             optuna_checkpoint = None
             
-            epochs = trial.suggest_int('epochs', vae_config['epochs_range'][0], vae_config['epochs_range'][1])
             # Train model and evaluate
             try:
                 trained_model, validation_loss = train_vae(
-                    model, train_data, validation_data, optimizer, epochs, trial_log_dir, device, 
+                    model, train_data, validation_data, optimizer, epochs=checkpoint['epochs'], model_save_dir= trial_log_dir, device= device, 
                     batch_size=checkpoint['batch_size'], patience=patience, latent_dim=checkpoint['latent_dim'], hidden_dim=checkpoint['hidden_dim'],
                     learning_rate=checkpoint['learning_rate'], trial=trial, 
-                    start_epoch= checkpoint['epoch'], best_loss = checkpoint['best_loss'], no_improvement_count = checkpoint['no_improvement_count']
+                    start_epoch= epoch, best_loss = checkpoint['best_loss'], no_improvement_count = checkpoint['no_improvement_count']
                 )
             except optuna.exceptions.TrialPruned:
                 raise  # Let Optuna handle the pruned trial
@@ -149,11 +184,17 @@ def vae_run(config_path, data = None):
 
         # Return validation loss for Optuna to minimize
         return validation_loss
-
-    # Run Optuna optimization
+    #################################################################################################
+    ###### Run Optuna optimization ##################################################################
     study.optimize(objective, n_trials=vae_config['optuna_n_trials'])
+    # import pandas as pd
+    # def export_study_to_csv(study, filename="optuna_trials.csv"):
+    #     trials = study.trials_dataframe(attrs=("number", "value", "params", "user_attrs", "state"))
+    #     trials.to_csv(filename, index=False)
+    #     print(f"✅ Saved to {filename}")
+    # export_study_to_csv(study)
     
-    # Print best parameters
+    # Print best parameters    
     best_params = study.best_params
     print(f"\nStart with Best params: {best_params}")
 

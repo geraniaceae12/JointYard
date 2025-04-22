@@ -68,6 +68,68 @@ def egocentric_alignment_3d(data, bodypoint_names, egocentric_keypoint):
 
     return aligned_data, center_coords
 
+def align_3dvector_to_axis(data, vector_from_name, vector_to_name, bodypoint_names):
+    """
+    Rotate egocentrically aligned 3D data so that the vector from `vector_from_name` to `vector_to_name`
+    aligns with the global x-axis.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Aligned 3D data of shape (n_frames, (n_keypoints - 1) * 3), output from egocentric_alignment_3d.
+    vector_from_name : str
+        The name of the starting point of the vector (usually the egocentric keypoint).
+    vector_to_name : str
+        The name of the target point to define the direction vector.
+    bodypoint_names : list
+        The list of all bodypoint names before removing the egocentric keypoint.
+
+    Returns
+    -------
+    np.ndarray
+        Rotated aligned data of shape (n_frames, (n_keypoints - 1) * 3)
+    """
+    n_frames = data.shape[0]
+    reduced_names = [name for name in bodypoint_names if name != vector_from_name]
+    name_to_idx = {name: i for i, name in enumerate(reduced_names)}
+
+    if vector_to_name not in name_to_idx:
+        raise ValueError(f"Target keypoint '{vector_to_name}' not found in aligned data.")
+
+    # Index of the target keypoint (after removing the center keypoint)
+    to_idx = name_to_idx[vector_to_name]
+    to_coords = data[:, to_idx * 3:(to_idx + 1) * 3]
+
+    # Each frame's vector from origin (0,0,0) to the target point
+    rotation_matrices = []
+    for i in range(n_frames):
+        vec = to_coords[i]
+        if np.linalg.norm(vec) == 0:
+            rot = np.eye(3)
+        else:
+            # Create a rotation that aligns vec to x-axis
+            vec_unit = vec / np.linalg.norm(vec)
+            rot_vec = np.cross(vec_unit, [1, 0, 0])
+            sin_angle = np.linalg.norm(rot_vec)
+            if sin_angle == 0:
+                rot = np.eye(3)
+            else:
+                cos_angle = np.dot(vec_unit, [1, 0, 0])
+                rot_axis = rot_vec / sin_angle
+                angle = np.arctan2(sin_angle, cos_angle)
+                rot = R.from_rotvec(rot_axis * angle).as_matrix()
+        rotation_matrices.append(rot)
+
+    # Apply rotation to each frame
+    aligned_rotated_data = np.zeros_like(data)
+    n_keypoints = len(reduced_names)
+    for i in range(n_frames):
+        frame = data[i].reshape((n_keypoints, 3))
+        rotated_frame = rotation_matrices[i] @ frame.T
+        aligned_rotated_data[i] = rotated_frame.T.flatten()
+
+    return aligned_rotated_data
+
 def egocentric_alignment_2d(data, keypoint_names, egocentric_keypoints, n_views):
     """
     Perform egocentric alignment on 2D LP data using the specified center keypoints.

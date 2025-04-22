@@ -15,7 +15,7 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
               patience=50, batch_size=32, latent_dim=2, hidden_dim=128, learning_rate=0.001, trial=None,
               start_epoch = None, best_loss = None, no_improvement_count = None):
     criterion = torch.nn.MSELoss()
-    best_loss = float('inf') if not best_loss else best_loss
+    best_loss = float('inf') if best_loss is None else best_loss
     no_improvement_count = 0 if not no_improvement_count else no_improvement_count
     scaler = GradScaler() # Mixed Precision Traning을 위한 GradScaler 초기화
 
@@ -61,7 +61,8 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
 
                 model_info_dir = os.path.join(model_save_dir, "model_info")
                 os.makedirs(model_info_dir, exist_ok=True)
-                best_model_path = os.path.join(model_info_dir, f"best_model_epoch_{epoch+1}_loss_{best_loss:.4f}.pt")
+                best_model_path = os.path.join(model_info_dir, f"best_model_latest.pt")
+                #best_model_path = os.path.join(model_info_dir, f"best_model_epoch_{epoch+1}_loss_{best_loss:.4f}.pt")
                 torch.save(model.state_dict(), best_model_path)
 
                 # 하이퍼파라미터 저장
@@ -77,11 +78,11 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                     json.dump(best_hyperparams, f)
                 
                 # 훈련 상태 저장 (Optimizer, Epoch 등)
-                optuna_info_dir = os.path.join(model_save_dir, "optuna_info")
-                os.makedirs(optuna_info_dir, exist_ok=True)
-                checkpoint_path = os.path.join(optuna_info_dir, f"optuna_checkpoint_epoch_{epoch+1}.pth")
+                checkpoint_path = os.path.join(model_save_dir, f"optuna_checkpoint_latest.pth")
                 torch.save({
                     'epoch': epoch + 1,
+                    'epochs': epochs,
+                    'trial_number':trial.number,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'best_loss': best_loss,
@@ -95,20 +96,22 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                 # 잠재 공간 저장 및 시각화
                 model.eval()
                 with torch.no_grad():
-                    latent_space_train = np.empty((0, latent_dim))
-                    latent_space_val = np.empty((0, latent_dim))
+                    latent_train_list, latent_val_list = [], []
                     for i in range(0, len(train_data), batch_size):
                         batch = train_data[i:i+batch_size].to(device)
                         _, mean, _ = model(batch)
-                        latent_space_train = np.vstack([latent_space_train, mean.cpu().numpy()])
+                        latent_train_list.append(mean.cpu().numpy())
                     for i in range(0, len(validation_data), batch_size):
                         batch = validation_data[i:i+batch_size].to(device)
                         _, mean, _ = model(batch)
-                        latent_space_val = np.vstack([latent_space_val, mean.cpu().numpy()])
+                        latent_val_list.append(mean.cpu().numpy())
+                    latent_space_train = np.vstack(latent_train_list)
+                    latent_space_val = np.vstack(latent_val_list)
+
                 embedding_info_dir = os.path.join(model_save_dir, "embedding_info")
                 os.makedirs(embedding_info_dir, exist_ok=True)
                 visualize_latent_space_and_save(latent_space_train, latent_space_val, latent_dim, embedding_info_dir, best_loss, model_file=os.path.basename(best_model_path))
-                
+                model.train() 
                 # Early stopping logic based on improvement
                 # min_delta = 1e-4  # Minimum loss change to reset counter
                 # if best_loss - val_loss < min_delta:
@@ -126,16 +129,31 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
     writer.close()
     return model, best_loss
 
-def compute_validation_loss(model, validation_data, criterion, batch_size, device):
+def compute_validation_loss(model, validation_data, criterion, batch_size, device): # recon loss & kl loss도 전체에 대한 평균으로 교체
     model.eval()
-    validation_loss = 0.0
+    total_loss = 0.0
+    total_reconstruction_loss = 0.0
+    total_kl_loss = 0.0
+
     with torch.no_grad():
         for i in range(0, len(validation_data), batch_size):
             batch = validation_data[i:i+batch_size].to(device)
             reconstructed, mean, logvar = model(batch)
+
             reconstruction_loss = criterion(reconstructed, batch)
             kl_loss = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp())
-            total_loss = reconstruction_loss + kl_loss
-            validation_loss += total_loss.item() * batch.size(0)
-    validation_loss /= len(validation_data)
-    return validation_loss, reconstruction_loss, kl_loss
+            loss = reconstruction_loss + kl_loss
+
+            batch_size_actual = batch.size(0)  # 마지막 배치 처리용
+
+            total_loss += loss.item() * batch_size_actual
+            total_reconstruction_loss += reconstruction_loss.item() * batch_size_actual
+            total_kl_loss += kl_loss.item() * batch_size_actual
+
+    dataset_size = len(validation_data)
+    avg_total_loss = total_loss / dataset_size
+    avg_reconstruction_loss = total_reconstruction_loss / dataset_size
+    avg_kl_loss = total_kl_loss / dataset_size
+
+    return avg_total_loss, avg_reconstruction_loss, avg_kl_loss
+

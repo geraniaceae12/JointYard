@@ -186,6 +186,7 @@ def process_noise(cluster_labels, soft_cluster_probs, prob_threshold, std_thresh
     
     print(f"Total data points: {total_points}")
     print(f"Number of points classified as noise: {noise_points_count}")
+    print(f"Number of clusters found: {len(np.unique(best_clusters[best_clusters >= 0]))}")
     
     return soft_labels, max_probs
         

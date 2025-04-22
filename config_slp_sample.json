@@ -1,0 +1,88 @@
+{
+    "info":{
+        "base_file": "/filepathway/to/management file(.xlsx)",
+        "save_dir": "/filepathway/to/save",
+
+        "n_views": 4,
+        "n_keypoints": 11,
+        "keypoint_names": ["nose", "l_ear", "r_ear","body","l_fft","r_fft",
+        "l_hft","r_hft","top_tail","mid_tail","end_tail"]
+    },
+
+    "cwt": {
+        "use_saved_cwt": false,
+        "use_savedcwt_path": "/filepathway/to/existing/cwt file(.npy)",
+
+        "scaler": false,
+        "cwt_frequencies_start": 1,
+        "cwt_frequencies_end": 30,
+        "cwt_frequencies_step": 1,
+        "cwt_omega0": 6,
+        "cwt_dt": 0.01,
+        "cwt_plot_separate": false,
+
+        "cwt_filtering": true,
+        "freq_removal_threshold": 0.8
+    },
+
+    "vae": {
+        "use_saved_latentspace": false,
+        "use_savedlatent_path": "/filepathway/to/existing/vae/latent/file(.npy)",
+
+        "use_saved_vae": false,
+        "use_savedvae_path": "/filepathway/to/existing/vae/modelweight/file(.pt)",
+        "use_savedvaehyparam_path": "/filepathway/to/existing/vae/hyperparmeter/file(.json)",
+
+        "optuna_db_path": "/filepathway/to/existing/deepvae/vae_hparam_search/vae_optuna.db",
+        "optuna_study_name": "(dafault)vae_hparam_search",
+        "optuna_checkpoint": "/filepathway/to/existing/optuna_checkpoint_latest.pth",
+
+        "scaler": true,
+        
+        "vaemodel_type": "deepvae",
+        "test_split": 0.2,
+       
+        "hidden_dim_range": [2080, 4160],  
+        "latent_dim_range": [20, 104],    
+        "epochs_range": [100, 2000],    
+        "batch_size_options": [147456, 163840, 180224], 
+        "learning_rate_range": [1e-7, 1e-3],
+        "optuna_n_trials": 20,
+        "patience": 20 
+    },
+
+    "umap": {
+        "use_saved_umap": false,
+        "use_savedumap_path": "/filepathway/to/existing/umap/file(.npy)",
+
+        "n_neighbors": 40,
+        "min_dist": 0.5,
+        "n_components": 10,
+        "plot_2d": true,
+        "plot_3d": true,
+        "save_plot": true
+    },
+
+    "hdbscan": {
+        "run_gpu": false,
+        "min_cluster_sizes": [100,200,300,400,500,600,700,800,900,1000],
+        
+        "method": "leaf",
+
+        "noise_method": "std_threshold",
+        "prob_threshold": 0.1,
+        "std_threshold": 1.0,
+
+        "dim_reduction_type": "pca",
+        "plot_2d": true,
+        "plot_3d": false,
+        "plot_show": false,
+        "save_plot": true,
+        "save_plotformat": "png",
+        
+        "frames_to_show_per_medoid": 6,
+        "selection_mode": "closest",
+        "save_ani": false
+    }
+  }
+  

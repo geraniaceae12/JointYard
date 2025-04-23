@@ -12,7 +12,7 @@ from .vae_utils import load_config, load_data, check_gpu, get_optimizer
 from .vae_visualize import visualize_latent_space_and_save
 
 def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_dir, device, 
-              patience=50, batch_size=32, latent_dim=2, hidden_dim=128, learning_rate=0.001, trial=None,
+              patience=50, batch_size=32, beta = 1.0, latent_dim=2, hidden_dim=128, learning_rate=0.001, trial=None,
               start_epoch = None, best_loss = None, no_improvement_count = None):
     criterion = torch.nn.MSELoss()
     best_loss = float('inf') if best_loss is None else best_loss
@@ -34,7 +34,7 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                 reconstructed, mean, logvar = model(batch)
                 reconstruction_loss = criterion(reconstructed, batch)
                 kl_loss = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp())
-                total_loss = reconstruction_loss + kl_loss
+                total_loss = reconstruction_loss + beta * kl_loss
 
             # Scale loss values and preceed with backpropagation and optimizer updates     
             scaler.scale(total_loss).backward()
@@ -71,7 +71,8 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                     'hidden_dim': hidden_dim,
                     'epochs': epochs,
                     'batch_size': batch_size,
-                    'learning_rate': learning_rate
+                    'learning_rate': learning_rate,
+                    'beta': beta
                 }
                 best_hyperparams_path = os.path.join(model_info_dir, "best_hyperparams.json")
                 with open(best_hyperparams_path, 'w') as f:
@@ -90,7 +91,8 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                     'latent_dim': latent_dim,  
                     'hidden_dim': hidden_dim,
                     'batch_size': batch_size,
-                    'learning_rate':learning_rate
+                    'learning_rate':learning_rate,
+                    'beta': beta
                 }, checkpoint_path)
 
                 # 잠재 공간 저장 및 시각화
@@ -142,7 +144,7 @@ def compute_validation_loss(model, validation_data, criterion, batch_size, devic
 
             reconstruction_loss = criterion(reconstructed, batch)
             kl_loss = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp())
-            loss = reconstruction_loss + kl_loss
+            loss = reconstruction_loss + beta * kl_loss
 
             batch_size_actual = batch.size(0)  # 마지막 배치 처리용
 

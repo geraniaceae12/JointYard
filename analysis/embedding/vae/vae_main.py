@@ -11,7 +11,7 @@ from optuna.storages import RDBStorage
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from .vae_model import DeepVAE, VanillaVAE
+from .vae_model import DeepVAE, VanillaVAE, DeepVAE2
 from .vae_utils import load_config, load_data, check_gpu, get_optimizer
 from .vae_train import train_vae
 
@@ -80,7 +80,7 @@ def vae_run(config_path, data = None):
     
     ###### Define the Optuna study with a Pruner ########################
     # Determine configuration state and print corresponding message
-    if optuna_db_path is not None and optuna_study_name is not None:
+    if optuna_db_path and optuna_study_name:
         print(f"📦 Connecting to Optuna DB at {optuna_db_path} with study name '{optuna_study_name}'")
     elif optuna_study_name is not None:
         optuna_db_path = os.path.join(config['info']['save_dir'], model_type, optuna_study_name)
@@ -128,6 +128,8 @@ def vae_run(config_path, data = None):
             # 모델 초기화 (체크포인트 하이퍼파라미터 기반)
             if model_type == 'deepvae':
                 model = DeepVAE(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['hidden_dim']).to(device)
+            elif model_type == 'deepvae2':
+                model = DeepVAE2(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['hidden_dim']).to(device)
             elif model_type == 'vanillavae':
                 model = VanillaVAE(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['latent_dim']).to(device)
             else:
@@ -148,7 +150,8 @@ def vae_run(config_path, data = None):
             try:
                 trained_model, validation_loss = train_vae(
                     model, train_data, validation_data, optimizer, epochs=checkpoint['epochs'], model_save_dir= trial_log_dir, device= device, 
-                    batch_size=checkpoint['batch_size'], patience=patience, latent_dim=checkpoint['latent_dim'], hidden_dim=checkpoint['hidden_dim'],
+                    batch_size=checkpoint['batch_size'], beta = checkpoint['beta'], patience=patience,
+                    latent_dim=checkpoint['latent_dim'], hidden_dim=checkpoint['hidden_dim'],
                     learning_rate=checkpoint['learning_rate'], trial=trial, 
                     start_epoch= epoch, best_loss = checkpoint['best_loss'], no_improvement_count = checkpoint['no_improvement_count']
                 )
@@ -161,10 +164,13 @@ def vae_run(config_path, data = None):
             batch_size = trial.suggest_categorical('batch_size', vae_config['batch_size_options'])
             learning_rate = trial.suggest_float('learning_rate', vae_config['learning_rate_range'][0], vae_config['learning_rate_range'][1], log=True)
             epochs = trial.suggest_int('epochs', vae_config['epochs_range'][0], vae_config['epochs_range'][1])
+            beta = trial.suggest_float('beta', vae_config['beta_range'][0], vae_config['beta_range'][1], log=True)
 
             # Initialize Model
             if model_type == 'deepvae':
                 model = DeepVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
+            elif model_type == 'deepvae2':
+                model = DeepVAE2(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
             elif model_type == 'vanillavae':
                 model = VanillaVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
             else:
@@ -177,7 +183,7 @@ def vae_run(config_path, data = None):
             try:
                 trained_model, validation_loss = train_vae(
                     model, train_data, validation_data, optimizer, epochs, trial_log_dir, device, batch_size=batch_size,
-                    patience=patience, latent_dim=latent_dim, hidden_dim=hidden_dim, learning_rate=learning_rate, trial=trial
+                    beta = beta, patience=patience, latent_dim=latent_dim, hidden_dim=hidden_dim, learning_rate=learning_rate, trial=trial
                 )
             except optuna.exceptions.TrialPruned:
                 raise  # Let Optuna handle the pruned trial
@@ -210,6 +216,8 @@ def vae_run(config_path, data = None):
     # Initialize model with best hyperparameters
     if model_type == 'deepvae':
         model = DeepVAE(latent_dim=best_params['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=best_params['hidden_dim']).to(device)
+    elif model_type == 'deepvae2':
+        model = DeepVAE2(latent_dim=best_params['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=best_params['hidden_dim']).to(device)
     elif model_type == 'vanillavae':
         model = VanillaVAE(latent_dim=best_params['latent_dim'], feature_dim=train_data.shape[1]).to(device)
 
@@ -219,7 +227,7 @@ def vae_run(config_path, data = None):
     # Train with best hyperparameters
     trained_model, val_loss = train_vae(model, train_data, validation_data, optimizer, 
                               best_params['epochs'], best_save_dir, device, 
-                              batch_size=best_params['batch_size'], patience=patience, 
+                              batch_size=best_params['batch_size'], beta = best_params['beta'],patience=patience, 
                               latent_dim=best_params['latent_dim'], hidden_dim=best_params['hidden_dim']) # 마지막에 trial안넣나?
     
     # Save the final trained model

@@ -1,6 +1,5 @@
 {
     "info":{
-        "base_file": "/filepathway/to/management file(.xlsx)",
         "save_dir": "/filepathway/to/save",
 
         "n_views": 4,
@@ -39,16 +38,17 @@
 
         "scaler": true,
         
-        "vaemodel_type": "deepvae",
+        "vaemodel_type": "deepvae2",
         "test_split": 0.2,
-       
+
+        "beta_range": [0.1, 10.0],
         "hidden_dim_range": [2080, 4160],  
         "latent_dim_range": [20, 104],    
-        "epochs_range": [100, 2000],    
-        "batch_size_options": [147456, 163840, 180224], 
-        "learning_rate_range": [1e-7, 1e-3],
+        "epochs_range": [200, 2000],    
+        "batch_size_options": [16384, 32768], 
+        "learning_rate_range": [1e-7, 1e-4],
         "optuna_n_trials": 20,
-        "patience": 20 
+        "patience": 30 
     },
 
     "umap": {

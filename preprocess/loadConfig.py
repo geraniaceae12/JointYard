@@ -30,8 +30,8 @@ class ConfigLoader:
     def get_info(self):
         info = self.config.get('info', {})
         return {
-            'base_file': info.get('base_file'),
-            'eks_csv': info.get('eks_csv',False),
+            'base_file': info.get('base_file', None),
+            'eks_csv': info.get('eks_csv', None),
             'save_dir': info.get('save_dir'),
             
             'n_views': info.get('n_views'),
@@ -117,9 +117,10 @@ class ConfigLoader:
 
             'scaler': vae.get('scaler', True),
 
-            'vaemodel_type': vae.get('vaemodel_type', "deepvae"),
+            'vaemodel_type': vae.get('vaemodel_type', "deepvae2"),
             'test_split': vae.get('test_split', 0.2),
 
+            'beta': vae.get('beta_range'),
             'hidden_dim_range': vae.get('hidden_dim_range'),
             'latent_dim_range': vae.get('latent_dim_range'),
             'epochs_range': vae.get('epochs'),

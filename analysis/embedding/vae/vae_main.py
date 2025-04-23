@@ -53,7 +53,7 @@ def vae_run(config_path, data = None):
     optuna_study_name = vae_config.get("optuna_study_name", None)
     optuna_checkpoint = vae_config['optuna_checkpoint']
     
-    model_save_dir = os.path.join(config['info']['save_dir'],model_type) + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    model_save_dir = os.path.join(config['info']['save_dir'],model_type,datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     os.makedirs(model_save_dir, exist_ok=True) 
 
     # Check device
@@ -79,18 +79,23 @@ def vae_run(config_path, data = None):
     train_data, validation_data = train_test_split(data, test_size = vae_config.get('test_split', 0.2) , random_state=42)
     
     ###### Define the Optuna study with a Pruner ########################
-    if optuna_db_path and optuna_study_name:
+    # Determine configuration state and print corresponding message
+    if optuna_db_path is not None and optuna_study_name is not None:
         print(f"📦 Connecting to Optuna DB at {optuna_db_path} with study name '{optuna_study_name}'")
-        optuna_db_url = f"sqlite:///{optuna_db_path}"
-        storage = RDBStorage(optuna_db_url)
+    elif optuna_study_name is not None:
+        optuna_db_path = os.path.join(config['info']['save_dir'], model_type, optuna_study_name)
+        os.makedirs(optuna_db_path, exist_ok=True)
+        print(f"📦 Using default Optuna DB path at {optuna_db_path} with specified study name '{optuna_study_name}'")
     else:
-        print("⚠️ No Optuna DB specified, Study will be created with default values.")
         optuna_study_name = "vae_hparam_search"
-        optuna_db_path = os.path.join(config['info']['save_dir'],model_type,optuna_study_name)
-        os.makedirs(optuna_db_path, exist_ok=True) 
-        optuna_db_url = f"sqlite:///{os.path.join(optuna_db_path, 'vae_optuna.db')}"
-        storage = RDBStorage(optuna_db_url)
+        optuna_db_path = os.path.join(config['info']['save_dir'], model_type, optuna_study_name)
+        os.makedirs(optuna_db_path, exist_ok=True)
+        print("⚠️ No Optuna DB specified, Study will be created with default values.")
 
+    # Construct the Optuna DB URL and storage
+    optuna_db_url = f"sqlite:///{os.path.join(optuna_db_path, 'vae_optuna.db')}"
+    storage = optuna.storages.RDBStorage(optuna_db_url)
+    
     study = optuna.create_study(
         study_name=optuna_study_name,
         direction='minimize',

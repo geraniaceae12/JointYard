@@ -66,7 +66,7 @@ def visualize_latent_space_and_save(latent_space_train, latent_space_val, latent
         ax.set_xlabel('Principal Component 1')
         ax.set_ylabel('Principal Component 2')
         ax.set_zlabel('Principal Component 3')
-        ax.set_title(f'Latent Space Visualization (3D)_latentDim:{latent_dim}\nval_loss: {val_loss:.2f}, PC:{100 * cumsum_variance_ratio[num_components_90-1]:.2f}%')
+        ax.set_title(f'Latent Space Visualization (3D)_latentDim:{latent_dim}\nval_loss: {val_loss:.2f}, PC:{100 * cumsum_variance_ratio[num_components_90-1]:.2f}%({num_components_90})')
         plt.legend()
         plt.grid(True)
         plt.savefig(os.path.join(log_dir, f'latent_space_{model_file}.png'))

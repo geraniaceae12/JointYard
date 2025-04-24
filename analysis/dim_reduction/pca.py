@@ -34,8 +34,9 @@ def perform_pca(data, confidence=0.95, n_components=None, using_gpu = True):
         explained_variance_ratio = cp.cumsum(pca.explained_variance_ratio_)
 
         # Determine the number of components needed to exceed the desired confidence level
-        n_components = cp.argmax(explained_variance_ratio >= confidence) + 1 if n_components is None else n_components
-
+        if n_components is None:
+            n_components = int(cp.argmax(explained_variance_ratio >= confidence).get()) + 1
+            
         # Perform PCA with the determined number of components
         pca = cuPCA(n_components=n_components)
         principal_components = pca.fit_transform(data)

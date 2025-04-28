@@ -38,7 +38,7 @@
 
         "scaler": true,
         
-        "vaemodel_type": "deepvae2",
+        "vaemodel_type": "deepvae3",
         "test_split": 0.2,
 
         "beta_range": [0.1, 10.0],

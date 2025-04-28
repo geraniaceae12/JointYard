@@ -117,7 +117,7 @@ class ConfigLoader:
 
             'scaler': vae.get('scaler', True),
 
-            'vaemodel_type': vae.get('vaemodel_type', "deepvae2"),
+            'vaemodel_type': vae.get('vaemodel_type', "deepvae3"),
             'test_split': vae.get('test_split', 0.2),
 
             'beta': vae.get('beta_range'),

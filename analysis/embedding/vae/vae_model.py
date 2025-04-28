@@ -65,7 +65,7 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x):
         return self.activation(self.block(x) + x)
-
+###########################################################################
 class DeepVAE2(nn.Module): # Layer increase/ Dropout/ BatchNorm/ ResidualBlock
     def __init__(self, latent_dim, feature_dim, hidden_dim, dropout=0.2):
         super(DeepVAE2, self).__init__()
@@ -120,6 +120,76 @@ class DeepVAE2(nn.Module): # Layer increase/ Dropout/ BatchNorm/ ResidualBlock
 
         reconstructed = torch.clamp(reconstructed, min=-1.0, max=1.0)  # [-1, 1]로 clamp
         return reconstructed, mean, logvar
+####################################################################################################33
+class ResidualBlock2(nn.Module): # LeakyReLU/ Dropout/ LayerNorm/ ResidualBlock
+    def __init__(self, dim, dropout=0.2):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.LeakyReLU(0.1),
+            nn.LayerNorm(dim),
+            nn.Dropout(dropout),
+            nn.Linear(dim, dim),
+            nn.LayerNorm(dim)
+        )
+        self.activation = nn.LeakyReLU(0.1)
+
+    def forward(self, x):
+        return self.activation(self.block(x) + x)
+
+class DeepVAE3(nn.Module): # more stable, if input feature dim or batch size is small
+    def __init__(self, latent_dim, feature_dim, hidden_dim, dropout=0.2):
+        super(DeepVAE3, self).__init__()
+        self.latent_dim = latent_dim
+        self.encoder = self.build_encoder(feature_dim, hidden_dim, latent_dim, dropout)
+        self.decoder = self.build_decoder(latent_dim, hidden_dim, feature_dim, dropout)
+
+    def build_encoder(self, feature_dim, hidden_dim, latent_dim, dropout):
+        return nn.Sequential(
+            nn.Linear(feature_dim, hidden_dim),
+            nn.LeakyReLU(0.1),
+            nn.LayerNorm(hidden_dim),
+            nn.Dropout(dropout),
+
+            ResidualBlock2(hidden_dim, dropout),
+            ResidualBlock2(hidden_dim, dropout),
+
+            nn.Linear(hidden_dim, latent_dim * 2)  # mean & logvar
+        )
+
+    def build_decoder(self, latent_dim, hidden_dim, feature_dim, dropout):
+        return nn.Sequential(
+            nn.Linear(latent_dim, hidden_dim),
+            nn.LeakyReLU(0.1),
+            nn.LayerNorm(hidden_dim),
+            nn.Dropout(dropout),
+
+            ResidualBlock2(hidden_dim, dropout),
+            ResidualBlock2(hidden_dim, dropout),
+
+            nn.Linear(hidden_dim, feature_dim),
+            nn.Tanh()  # decoder output in [-1, 1]
+        )
+
+    def encode(self, x):
+        encoded = self.encoder(x)
+        mean_logvar = encoded.view(-1, 2, self.latent_dim)
+        mean, logvar = mean_logvar[:, 0, :], mean_logvar[:, 1, :]
+        return mean, logvar
+
+    def reparameterize(self, mean, logvar):
+        eps = torch.randn_like(mean)
+        return eps * torch.exp(logvar * 0.5) + mean
+
+    def decode(self, z):
+        return self.decoder(z)
+
+    def forward(self, x):
+        mean, logvar = self.encode(x)
+        z = self.reparameterize(mean, logvar)
+        reconstructed = self.decode(z)
+        return reconstructed, mean, logvar
+############################################################################################
 class VanillaVAE(nn.Module):
     def __init__(self, latent_dim, input_dim, hidden_dim):
         super(VanillaVAE, self).__init__()

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import json
 from torch import nn, optim
-from .vae_model import DeepVAE, VanillaVAE, DeepVAE2
+from .vae_model import DeepVAE, VanillaVAE, DeepVAE2, DeepVAE3
 from .vae_visualize import timeorder_visualize_latent_space_and_save
 
 def check_gpu():
@@ -39,6 +39,8 @@ def load_savedmodel(model_type, model_path, hyparam_path, feature_dim, device = 
         model = DeepVAE(latent_dim=latent_dim, feature_dim=feature_dim, hidden_dim=hidden_dim)  # Initialize with the loaded parameters
     elif model_type == 'deepvae2':
         model = DeepVAE2(latent_dim=latent_dim, feature_dim=feature_dim, hidden_dim=hidden_dim)  # Initialize with the loaded parameters
+    elif model_type == 'deepvae3':
+        model = DeepVAE3(latent_dim=latent_dim, feature_dim=feature_dim, hidden_dim=hidden_dim)  # Initialize with the loaded parameters
     elif model_type == 'vanillavae':
         model = VanillaVAE(latent_dim=latent_dim, feature_dim=feature_dim, hidden_dim=hidden_dim)  # Initialize with the loaded parameters
     else:

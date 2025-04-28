@@ -6,7 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 import cv2
 import os
-from .vae_model import DeepVAE, VanillaVAE, DeepVAE2
+from .vae_model import DeepVAE, VanillaVAE, DeepVAE2, DeepVAE3
 
 
 def load_model(model_type, model_path, device=None):
@@ -14,6 +14,8 @@ def load_model(model_type, model_path, device=None):
         model = DeepVAE()  # Initialize with the appropriate parameters if needed.
     elif model_type =='deepvae2':
         model = DeepVAE2()
+    elif model_type =='deepvae3':
+        model = DeepVAE3()
     elif model_type == 'vanillavae':
         model = VanillaVAE()  # Initialize with the appropriate parameters if needed.
     else:

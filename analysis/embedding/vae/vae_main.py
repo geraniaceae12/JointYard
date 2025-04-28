@@ -11,7 +11,7 @@ from optuna.storages import RDBStorage
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from .vae_model import DeepVAE, VanillaVAE, DeepVAE2
+from .vae_model import DeepVAE, VanillaVAE, DeepVAE2, DeepVAE3
 from .vae_utils import load_config, load_data, check_gpu, get_optimizer
 from .vae_train import train_vae
 
@@ -81,19 +81,21 @@ def vae_run(config_path, data = None):
     ###### Define the Optuna study with a Pruner ########################
     # Determine configuration state and print corresponding message
     if optuna_db_path and optuna_study_name:
+        optuna_db_url = f"sqlite:///{optuna_db_path}"
         print(f"📦 Connecting to Optuna DB at {optuna_db_path} with study name '{optuna_study_name}'")
     elif optuna_study_name is not None:
         optuna_db_path = os.path.join(config['info']['save_dir'], model_type, optuna_study_name)
         os.makedirs(optuna_db_path, exist_ok=True)
+        optuna_db_url = f"sqlite:///{optuna_db_path}"
         print(f"📦 Using default Optuna DB path at {optuna_db_path} with specified study name '{optuna_study_name}'")
     else:
         optuna_study_name = "vae_hparam_search"
         optuna_db_path = os.path.join(config['info']['save_dir'], model_type, optuna_study_name)
         os.makedirs(optuna_db_path, exist_ok=True)
+        optuna_db_url = f"sqlite:///{os.path.join(optuna_db_path, 'vae_optuna.db')}"
         print("⚠️ No Optuna DB specified, Study will be created with default values.")
 
     # Construct the Optuna DB URL and storage
-    optuna_db_url = f"sqlite:///{os.path.join(optuna_db_path, 'vae_optuna.db')}"
     storage = optuna.storages.RDBStorage(optuna_db_url)
     
     study = optuna.create_study(
@@ -130,6 +132,8 @@ def vae_run(config_path, data = None):
                 model = DeepVAE(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['hidden_dim']).to(device)
             elif model_type == 'deepvae2':
                 model = DeepVAE2(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['hidden_dim']).to(device)
+            elif model_type == 'deepvae3':
+                model = DeepVAE3(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['hidden_dim']).to(device)
             elif model_type == 'vanillavae':
                 model = VanillaVAE(latent_dim=checkpoint['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=checkpoint['latent_dim']).to(device)
             else:
@@ -171,6 +175,8 @@ def vae_run(config_path, data = None):
                 model = DeepVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
             elif model_type == 'deepvae2':
                 model = DeepVAE2(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
+            elif model_type == 'deepvae3':
+                model = DeepVAE3(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
             elif model_type == 'vanillavae':
                 model = VanillaVAE(latent_dim=latent_dim, feature_dim=train_data.shape[1], hidden_dim=hidden_dim).to(device)
             else:
@@ -218,6 +224,8 @@ def vae_run(config_path, data = None):
         model = DeepVAE(latent_dim=best_params['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=best_params['hidden_dim']).to(device)
     elif model_type == 'deepvae2':
         model = DeepVAE2(latent_dim=best_params['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=best_params['hidden_dim']).to(device)
+    elif model_type == 'deepvae3':
+        model = DeepVAE3(latent_dim=best_params['latent_dim'], feature_dim=train_data.shape[1], hidden_dim=best_params['hidden_dim']).to(device)
     elif model_type == 'vanillavae':
         model = VanillaVAE(latent_dim=best_params['latent_dim'], feature_dim=train_data.shape[1]).to(device)
 

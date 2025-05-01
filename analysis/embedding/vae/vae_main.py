@@ -167,7 +167,6 @@ def vae_run(config_path, data = None):
             latent_dim = trial.suggest_int('latent_dim', vae_config['latent_dim_range'][0], vae_config['latent_dim_range'][1])
             batch_size = trial.suggest_categorical('batch_size', vae_config['batch_size_options'])
             learning_rate = trial.suggest_float('learning_rate', vae_config['learning_rate_range'][0], vae_config['learning_rate_range'][1], log=True)
-            epochs = trial.suggest_int('epochs', vae_config['epochs_range'][0], vae_config['epochs_range'][1])
             beta = trial.suggest_float('beta', vae_config['beta_range'][0], vae_config['beta_range'][1], log=True)
 
             # Initialize Model
@@ -188,7 +187,7 @@ def vae_run(config_path, data = None):
             # Train model and evaluate
             try:
                 trained_model, validation_loss = train_vae(
-                    model, train_data, validation_data, optimizer, epochs, trial_log_dir, device, batch_size=batch_size,
+                    model, train_data, validation_data, optimizer, vae_config['epochs'], trial_log_dir, device, batch_size=batch_size,
                     beta = beta, patience=patience, latent_dim=latent_dim, hidden_dim=hidden_dim, learning_rate=learning_rate, trial=trial
                 )
             except optuna.exceptions.TrialPruned:

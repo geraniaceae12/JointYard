@@ -123,7 +123,7 @@ class ConfigLoader:
             'beta': vae.get('beta_range'),
             'hidden_dim_range': vae.get('hidden_dim_range'),
             'latent_dim_range': vae.get('latent_dim_range'),
-            'epochs_range': vae.get('epochs'),
+            'epochs': vae.get('epochs'),
             'batch_size_options': vae.get('batch_size_options'),
             'learning_rate_range': vae.get('learning_rate_range'),
             'optuna_n_trials': vae.get('optuna_n_trials'),

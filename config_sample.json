@@ -67,7 +67,7 @@
        
         "hidden_dim_range": [1080, 2400],  
         "latent_dim_range": [11, 66],    
-        "epochs_range": [100, 2000],    
+        "epochs": 2000,    
         "batch_size_options": [16384,32768], 
         "learning_rate_range": [1e-6, 1e-3],
         "optuna_n_trials": 40,

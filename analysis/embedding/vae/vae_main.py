@@ -86,7 +86,7 @@ def vae_run(config_path, data = None):
     elif optuna_study_name is not None:
         optuna_db_path = os.path.join(config['info']['save_dir'], model_type, optuna_study_name)
         os.makedirs(optuna_db_path, exist_ok=True)
-        optuna_db_url = f"sqlite:///{optuna_db_path}"
+        optuna_db_url = f"sqlite:///{os.path.join(optuna_db_path, 'vae_optuna.db')}"
         print(f"📦 Using default Optuna DB path at {optuna_db_path} with specified study name '{optuna_study_name}'")
     else:
         optuna_study_name = "vae_hparam_search"

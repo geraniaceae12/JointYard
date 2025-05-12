@@ -23,6 +23,12 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
 
     start_epoch = 0 if not start_epoch else start_epoch
     for epoch in range(start_epoch, epochs):
+        # Check for external stop signal to prune only current trial
+        skip_path = os.path.join(model_save_dir, "skip_trial.txt")
+        if os.path.exists(skip_path):
+            print(f"Epoch {epoch+1}: 'skip_trial.txt' detected. Pruning current trial.")
+            raise optuna.exceptions.TrialPruned()
+        
         model.train()
         train_loss = 0.0
         for i in range(0, len(train_data), batch_size):

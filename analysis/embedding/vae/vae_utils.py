@@ -1,6 +1,9 @@
 import torch
 import numpy as np
 import json
+import matplotlib.pyplot as plt
+import os
+from sklearn.cluster import KMeans
 from torch import nn, optim
 from .vae_model import DeepVAE, VanillaVAE, DeepVAE2, DeepVAE3
 from .vae_visualize import timeorder_visualize_latent_space_and_save
@@ -84,3 +87,58 @@ def evaluate_vae(model, data_path, log_dir, vae_config):
     time_data = np.arange(len(data))  # Example time data
     video_path = vae_config['video_path']
     timeorder_visualize_latent_space_and_save(mean.cpu().numpy(), time_data, vae_config['latent_dim'], video_path)
+
+def find_best_k_fixed(data, k_range=range(2, 30), save_dir = None):
+    # Define path for saving/loading k_fixed value
+    if save_dir is None:
+        save_dir = './'
+    os.makedirs(save_dir, exist_ok=True)
+
+    k_file_path = os.path.join(save_dir, 'k_fixed.json')
+    elbow_plot_path = os.path.join(save_dir, 'elbow_plot.png')
+
+    # If result already exists, load and return
+    if os.path.exists(k_file_path):
+        with open(k_file_path, 'r') as f:
+            k_fixed = json.load(f)['k_fixed']
+        print(f"[INFO: before VAE] Loaded existing k_fixed: {k_fixed}")
+        return k_fixed
+
+    if isinstance(data, torch.Tensor):
+        data = data.detach().cpu().numpy()
+
+    # Subsample if data too large
+    if data.shape[0] > 20000:
+        np.random.seed(42)
+        idx = np.random.choice(data.shape[0], size=20000, replace=False)
+        data_subset = data[idx]
+    else:
+        data_subset = data
+
+    # Run elbow method
+    inertia = []
+    for k in k_range:
+        kmeans = KMeans(init='k-means++', n_clusters=k, random_state=42, n_init='auto')
+        kmeans.fit(data_subset)
+        inertia.append(kmeans.inertia_)
+
+    # Use the elbow method: select k where the second derivative is minimized
+    deltas = np.diff(inertia)
+    second_deltas = np.diff(deltas)
+    k_fixed = k_range[np.argmin(second_deltas) + 1]
+
+    # Plot and save
+    plt.figure()
+    plt.plot(list(k_range), inertia, marker='o')
+    plt.xlabel('k')
+    plt.ylabel('Inertia')
+    plt.title(f'K Elbow Method: {k_fixed}')
+    plt.savefig(elbow_plot_path)
+    plt.close()
+
+    # Save k_fixed value
+    with open(k_file_path, 'w') as f:
+        json.dump({'k_fixed': int(k_fixed)}, f)
+
+    print(f"[INFO: before VAE] Saved k_fixed: {k_fixed} to {k_file_path}")
+    return k_fixed

@@ -7,13 +7,15 @@ import optuna
 from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import autocast, GradScaler
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import silhouette_score
+from sklearn.cluster import KMeans
 from .vae_model import DeepVAE, VanillaVAE
 from .vae_utils import load_config, load_data, check_gpu, get_optimizer
 from .vae_visualize import visualize_latent_space_and_save
 
 def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_dir, device, 
               patience=50, batch_size=32, beta = 1.0, latent_dim=2, hidden_dim=128, learning_rate=0.001, trial=None,
-              start_epoch = None, best_loss = None, no_improvement_count = None):
+              start_epoch = None, best_loss = None, no_improvement_count = None, best_k = 10):
     criterion = torch.nn.MSELoss()
     best_loss = float('inf') if best_loss is None else best_loss
     no_improvement_count = 0 if not no_improvement_count else no_improvement_count
@@ -53,14 +55,14 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
         writer.add_scalar('Loss/train', train_loss, epoch)
 
         if validation_data is not None:
-            val_loss, reconstruction_loss, kl_loss = compute_validation_loss(model, validation_data, criterion, batch_size, device)
+            val_loss, reconstruction_loss, kl_loss = compute_validation_loss(model, validation_data, criterion, batch_size, device, beta)
             writer.add_scalar('Loss/validation', val_loss, epoch)
             writer.add_scalar('Loss/reconstruction', reconstruction_loss, epoch)
             writer.add_scalar('Loss/kl', kl_loss, epoch)
 
-            # Prune the trial if necessary
-            if trial is not None and trial.should_prune():
-                raise optuna.exceptions.TrialPruned()  # Raise exception to stop the current trial
+            # # Prune the trial if necessary
+            # if trial is not None and trial.should_prune(): # it works in optuna-single objective optimization !!
+            #     raise optuna.exceptions.TrialPruned()  # Raise exception to stop the current trial
 
             if val_loss < best_loss:
                 best_loss = val_loss
@@ -133,11 +135,20 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
             if no_improvement_count >= patience:
                 print(f"Early stopping at epoch {epoch+1} with no improvement for {patience} epochs.")
                 break
+    if 'latent_space_val' in locals():
+        silhouette_score_val = compute_silhouette_score(latent_space_val, best_k)
+        silhouette_path = os.path.join(embedding_info_dir, f"silhouette_score_k{best_k}_{silhouette_score_val:.2f}.txt")
+        with open(silhouette_path, 'w') as f:
+            f.write(str(silhouette_score_val))
+        writer.add_scalar('Metric/silhouette_score', silhouette_score_val)
+    else:
+        silhouette_score_val = -1.0
+        print("Warning: latent_space_val not available for silhouette score computation.")
 
     writer.close()
     return model, best_loss
 
-def compute_validation_loss(model, validation_data, criterion, batch_size, device): # recon loss & kl loss도 전체에 대한 평균으로 교체
+def compute_validation_loss(model, validation_data, criterion, batch_size, device, beta=1.0): # recon loss & kl loss도 전체에 대한 평균으로 교체
     model.eval()
     total_loss = 0.0
     total_reconstruction_loss = 0.0
@@ -165,3 +176,10 @@ def compute_validation_loss(model, validation_data, criterion, batch_size, devic
 
     return avg_total_loss, avg_reconstruction_loss, avg_kl_loss
 
+def compute_silhouette_score(latent_space, k_fixed, sample_size=10000):
+    if isinstance(latent_space, torch.Tensor):
+        latent_space = latent_space.detach().cpu().numpy()
+    kmeans = KMeans(n_clusters=k_fixed, random_state=42, n_init="auto")
+    cluster_labels = kmeans.fit_predict(latent_space)
+    score = silhouette_score(latent_space, cluster_labels, sample_size=sample_size, random_state=42)
+    return score

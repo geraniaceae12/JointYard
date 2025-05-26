@@ -1,4 +1,3 @@
-# analysis/vae/train.py
 import random
 import torch
 import torch.optim as optim
@@ -12,7 +11,7 @@ from optuna.storages import RDBStorage
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from .vae_model import DeepVAE, VanillaVAE, DeepVAE2, DeepVAE3
-from .vae_utils import load_config, load_data, check_gpu, get_optimizer
+from .vae_utils import load_config, load_data, check_gpu, get_optimizer, find_best_k_fixed
 from .vae_train import train_vae
 
 def set_seed(seed=42):
@@ -95,12 +94,22 @@ def vae_run(config_path, data = None):
         optuna_db_url = f"sqlite:///{os.path.join(optuna_db_path, 'vae_optuna.db')}"
         print("⚠️ No Optuna DB specified, Study will be created with default values.")
 
+    # Before starting vae, find best hyperparmeter k of sillhoutte score
+    k_fixed = find_best_k_fixed(
+        validation_data,
+        save_dir = os.path.join(config['info']['save_dir'], model_type, optuna_study_name)
+        )
+
     # Construct the Optuna DB URL and storage
-    storage = optuna.storages.RDBStorage(optuna_db_url)
-    
+    #storage = optuna.storages.RDBStorage(optuna_db_url)
+    storage = optuna.storages.RDBStorage(
+        url=optuna_db_url,
+        engine_kwargs={"connect_args": {"timeout": 10}}
+    )
+
     study = optuna.create_study(
         study_name=optuna_study_name,
-        direction='minimize',
+        directions=['minimize','minimize'],
         storage=storage,
         load_if_exists=True,
         pruner=optuna.pruners.MedianPruner(
@@ -152,12 +161,13 @@ def vae_run(config_path, data = None):
             
             # Train model and evaluate
             try:
-                trained_model, validation_loss = train_vae(
+                trained_model, validation_loss, sillhouette_score = train_vae(
                     model, train_data, validation_data, optimizer, epochs=checkpoint['epochs'], model_save_dir= trial_log_dir, device= device, 
                     batch_size=checkpoint['batch_size'], beta = checkpoint['beta'], patience=patience,
                     latent_dim=checkpoint['latent_dim'], hidden_dim=checkpoint['hidden_dim'],
                     learning_rate=checkpoint['learning_rate'], trial=trial, 
-                    start_epoch= epoch, best_loss = checkpoint['best_loss'], no_improvement_count = checkpoint['no_improvement_count']
+                    start_epoch= epoch, best_loss = checkpoint['best_loss'],
+                    no_improvement_count = checkpoint['no_improvement_count'], best_k=k_fixed
                 )
             except optuna.exceptions.TrialPruned:
                 raise  # Let Optuna handle the pruned trial
@@ -186,9 +196,11 @@ def vae_run(config_path, data = None):
             
             # Train model and evaluate
             try:
-                trained_model, validation_loss = train_vae(
-                    model, train_data, validation_data, optimizer, vae_config['epochs'], trial_log_dir, device, batch_size=batch_size,
-                    beta = beta, patience=patience, latent_dim=latent_dim, hidden_dim=hidden_dim, learning_rate=learning_rate, trial=trial
+                trained_model, validation_loss, sillhouette_score = train_vae(
+                    model, train_data, validation_data, optimizer, vae_config['epochs'], 
+                    trial_log_dir, device, batch_size=batch_size, beta = beta, patience=patience,
+                    latent_dim=latent_dim, hidden_dim=hidden_dim, learning_rate=learning_rate,
+                    trial=trial, best_k = k_fixed
                 )
             except optuna.exceptions.TrialPruned:
                 raise  # Let Optuna handle the pruned trial
@@ -199,16 +211,10 @@ def vae_run(config_path, data = None):
         torch.cuda.empty_cache()
 
         # Return validation loss for Optuna to minimize
-        return validation_loss
+        return validation_loss, -sillhouette_score
     #################################################################################################
     ###### Run Optuna optimization ##################################################################
     study.optimize(objective, n_trials=vae_config['optuna_n_trials'])
-    # import pandas as pd
-    # def export_study_to_csv(study, filename="optuna_trials.csv"):
-    #     trials = study.trials_dataframe(attrs=("number", "value", "params", "user_attrs", "state"))
-    #     trials.to_csv(filename, index=False)
-    #     print(f"✅ Saved to {filename}")
-    # export_study_to_csv(study)
     
     # Print best parameters    
     best_params = study.best_params
@@ -232,16 +238,16 @@ def vae_run(config_path, data = None):
     optimizer = get_optimizer(model.parameters(), best_params['learning_rate'])
 
     # Train with best hyperparameters
-    trained_model, val_loss = train_vae(model, train_data, validation_data, optimizer, 
+    trained_model, val_loss, sil_score = train_vae(model, train_data, validation_data, optimizer, 
                               best_params['epochs'], best_save_dir, device, 
                               batch_size=best_params['batch_size'], beta = best_params['beta'],patience=patience, 
-                              latent_dim=best_params['latent_dim'], hidden_dim=best_params['hidden_dim']) # 마지막에 trial안넣나?
+                              latent_dim=best_params['latent_dim'], hidden_dim=best_params['hidden_dim'], best_k = k_fixed) 
     
     # Save the final trained model
     model_path = os.path.join(best_save_dir, "final_model.pt")
     torch.save(trained_model.state_dict(), model_path)
 
-    print(f"Save complete of final Best model: validation loss is {val_loss}")
+    print(f"Save complete of final Best model: validation loss is {val_loss} and sillhoutte score is {sil_score}")
 
     # GPU memory release after training
     del model, optimizer, train_data, validation_data

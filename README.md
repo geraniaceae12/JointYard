@@ -28,8 +28,9 @@ https://github.com/user-attachments/assets/3f816a22-69ad-4e05-99ee-233bdfc231a8
 conda create -n JointYard python==3.10
 conda activate JointYard
 ```
-2️. **Navigate to the project directory**
+2️. **Git clone and Navigate to the project directory**
 ```bash
+git clone https://github.com/thejiyounglee/JointYard.git
 cd /path/to/JointYard
 ```
 3️. **Install dependencies and RAPIDS cuML for GPU acceleration**

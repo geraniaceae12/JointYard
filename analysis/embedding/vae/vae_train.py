@@ -146,7 +146,7 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
         print("Warning: latent_space_val not available for silhouette score computation.")
 
     writer.close()
-    return model, best_loss
+    return model, best_loss, silhouette_score_val
 
 def compute_validation_loss(model, validation_data, criterion, batch_size, device, beta=1.0): # recon loss & kl loss도 전체에 대한 평균으로 교체
     model.eval()

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.spatial.transform import Rotation as R
 
 def egocentric_alignment_3d(data, bodypoint_names, egocentric_keypoint):
     """

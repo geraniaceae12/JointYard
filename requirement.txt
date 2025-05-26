@@ -10,3 +10,4 @@ mplcursors==0.5.3
 opencv-python==4.7.0.72
 openpyxl
 hdbscan
+h5py

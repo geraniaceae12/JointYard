@@ -120,7 +120,7 @@ def vae_run(config_path, data = None):
     ) # Create or resume the study
     print("🔍 Number of completed trials:", len(study.trials))
     if study.trials:
-        print("🏅 Best trial so far:", study.best_trial)
+        print("🏅 Best trial so far:", study.best_trials)
         for trial in study.trials:
             print(f"Trial ID: {trial.number}, State: {trial.state}")
 

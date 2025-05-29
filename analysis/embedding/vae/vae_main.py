@@ -217,7 +217,7 @@ def vae_run(config_path, data = None):
     study.optimize(objective, n_trials=vae_config['optuna_n_trials'])
     
     # Print best parameters    
-    best_params = study.best_params
+    best_params = min(study.best_trials,key=lambda t:sum(t.values)).params
     print(f"\nStart with Best params: {best_params}")
 
     # Save the best model

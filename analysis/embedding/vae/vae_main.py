@@ -239,7 +239,7 @@ def vae_run(config_path, data = None):
 
     # Train with best hyperparameters
     trained_model, val_loss, sil_score = train_vae(model, train_data, validation_data, optimizer, 
-                              best_params['epochs'], best_save_dir, device, 
+                              vae_config['epochs'], best_save_dir, device, 
                               batch_size=best_params['batch_size'], beta = best_params['beta'],patience=patience, 
                               latent_dim=best_params['latent_dim'], hidden_dim=best_params['hidden_dim'], best_k = k_fixed) 
     

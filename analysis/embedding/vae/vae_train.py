@@ -88,11 +88,10 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                 
                 # 훈련 상태 저장 (Optimizer, Epoch 등)
                 checkpoint_path = os.path.join(model_save_dir, f"optuna_checkpoint_latest.pth")
-                trial=7777 if trial is None else trial # best trial case for 7777
-                torch.save({
+                if trial is None:
+                  torch.save({
                     'epoch': epoch + 1,
                     'epochs': epochs,
-                    'trial_number':trial.number,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'best_loss': best_loss,
@@ -103,6 +102,21 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                     'learning_rate':learning_rate,
                     'beta': beta
                 }, checkpoint_path)
+                else: 
+                  torch.save({
+                      'epoch': epoch + 1,
+                      'epochs': epochs,
+                      'trial_number':trial.number,
+                      'model_state_dict': model.state_dict(),
+                      'optimizer_state_dict': optimizer.state_dict(),
+                      'best_loss': best_loss,
+                      'no_improvement_count': no_improvement_count,
+                      'latent_dim': latent_dim,  
+                      'hidden_dim': hidden_dim,
+                      'batch_size': batch_size,
+                      'learning_rate':learning_rate,
+                      'beta': beta
+                  }, checkpoint_path)
 
                 # 잠재 공간 저장 및 시각화
                 model.eval()

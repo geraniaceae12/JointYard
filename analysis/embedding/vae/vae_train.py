@@ -88,6 +88,7 @@ def train_vae(model, train_data, validation_data, optimizer, epochs, model_save_
                 
                 # 훈련 상태 저장 (Optimizer, Epoch 등)
                 checkpoint_path = os.path.join(model_save_dir, f"optuna_checkpoint_latest.pth")
+                trial=7777 if trial is None else trial # best trial case for 7777
                 torch.save({
                     'epoch': epoch + 1,
                     'epochs': epochs,
